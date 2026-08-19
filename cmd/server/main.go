@@ -18,13 +18,13 @@ import (
 
 	"github.com/amantyagi23/authbackend/internal/config"
 	"github.com/amantyagi23/authbackend/internal/handler/user"
+	"github.com/amantyagi23/authbackend/internal/infrastructure/db"
+	"github.com/amantyagi23/authbackend/internal/usecase"
 	"github.com/amantyagi23/authbackend/pkg/response"
 
-	"github.com/amantyagi23/authbackend/internal/infrastructure/db"
 	"github.com/amantyagi23/authbackend/internal/platform/database"
 	"github.com/amantyagi23/authbackend/internal/platform/logger"
 	"github.com/amantyagi23/authbackend/internal/platform/redis"
-	"github.com/amantyagi23/authbackend/internal/usecase"
 )
 
 func main() {
@@ -34,10 +34,14 @@ func main() {
 	}
 	cfg := config.Load()
 
-	log, syncLog := logger.New(cfg.AppName, cfg.LogLevel)
+	log, syncLog, err := logger.New(cfg.AppName, cfg.LogLevel, cfg.Production)
+	if err != nil {
+		panic(err)
+	}
+
 	defer syncLog()
 
-	log.Info("Chat App Starting",
+	log.Info("Auth Backend Starting",
 		zap.String("port", cfg.Port),
 	)
 	redisClient, err := redis.NewRedisClient(context.Background(), redis.Config{Host: cfg.RedisHost, Port: cfg.RedisPost, Password: "", DB: cfg.RedisDB}, log)
@@ -47,16 +51,16 @@ func main() {
 
 	defer redisClient.Close()
 
-	dbCfg := database.DefaultConfig(cfg.MongodbURI)
+	psqlDBCfg := database.DefaultConfig("postgresql://postgres:12345678@localhost:5432/authbackend")
 
-	mongoClient, err := database.Connect(context.Background(), dbCfg, log)
+	psqlClient, err := database.Connect(context.Background(), psqlDBCfg, log)
 	if err != nil {
-		log.Fatal("database connection failed", zap.Error(err))
+		log.Fatal("failed to connect database", zap.Error(err))
 	}
-	defer mongoClient.Disconnect(context.Background())
 
-	userRepo := db.NewUserRepository(mongoClient, cfg.DatabaseName, log)
-	userSessionRepo := db.NewUserSessionRepository(mongoClient, cfg.DatabaseName, log)
+	defer psqlClient.Close()
+	userRepo := db.NewUserRepository(psqlClient, log)
+	userSessionRepo := db.NewUserSessionRepository(psqlClient, log)
 	uc := usecase.NewUserUsecase(userRepo, log)
 	usuc := usecase.NewUserSessionUsecase(userSessionRepo, log)
 	userHandler := user.NewUserHandler(uc, usuc, log)
@@ -80,6 +84,8 @@ func main() {
 			})
 		},
 	})
+
+	app.Use(logger.Middleware(log))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:5173, http://localhost:3000",
 		AllowMethods:     "GET,POST,PUT,DELETE",
@@ -87,16 +93,19 @@ func main() {
 		AllowCredentials: true,
 	}))
 	// Global middleware
-	app.Use(recover.New())   // recover from panics
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+	})) // recover from panics
 	app.Use(requestid.New()) // inject X-Request-ID
 	app.Use(fiberlogger.New(fiberlogger.Config{
 		Format: "[${time}] ${status} - ${method} ${path} | ${latency} | rid=${locals:requestid}\n",
 	}))
 	// Routes
 
-	api := app.Group("/api/v1")
-	api.Get("/health", func(c *fiber.Ctx) error {
-		return response.OK(c, nil)
+	api := app.Group(cfg.APIPrefix)
+
+	api.Get("/", func(c *fiber.Ctx) error {
+		return response.OK(c, "Welcome to Auth Apis", nil)
 	})
 	userHandler.RegisterRoutes(api)
 
@@ -108,6 +117,7 @@ func main() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
 			log.Fatal("server listen error", zap.Error(err))
 		}
+
 	}()
 
 	log.Info("user-service ready", zap.String("port", cfg.Port))

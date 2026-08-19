@@ -1,59 +1,91 @@
-// Package logger wraps uber-go/zap to provide structured, levelled logging.
-// All services obtain their *zap.Logger from here — never call zap.New directly.
-//
-// Usage:
-//
-//	log, sync := logger.New("user-service", "info")
-//	defer sync()
-//	log.Info("server started", zap.String("port", ":8080"))
 package logger
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-// New creates a production-ready zap logger.
-// serviceName is added as a constant field so every log line identifies its origin.
-// level is one of: debug, info, warn, error.
-// Returns the logger and a flush function that must be deferred by the caller.
-func New(serviceName, level string) (*zap.Logger, func()) {
-	zapLevel := parseLevel(level)
+func New(serviceName, level string, production bool) (*zap.Logger, func(), error) {
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		return nil, nil, fmt.Errorf("create logs directory: %w", err)
+	}
 
-	cfg := zap.NewProductionConfig()
-	cfg.Level = zap.NewAtomicLevelAt(zapLevel)
-	cfg.EncoderConfig.TimeKey = "ts"
-	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	cfg.EncoderConfig.CallerKey = "caller"
-	cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-
-	log, err := cfg.Build(
-		zap.Fields(zap.String("service", serviceName)),
-		zap.AddCallerSkip(0),
+	file, err := os.OpenFile(
+		"logs/app.log",
+		os.O_CREATE|os.O_APPEND|os.O_WRONLY,
+		0644,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("logger: failed to initialize: %v", err))
+		return nil, nil, fmt.Errorf("open log file: %w", err)
 	}
+
+	zapLevel := parseLevel(level)
+
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.TimeKey = "ts"
+	encoderConfig.LevelKey = "level"
+	encoderConfig.MessageKey = "msg"
+	encoderConfig.CallerKey = "caller"
+
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+
+	encoder := zapcore.NewJSONEncoder(encoderConfig)
+
+	fileWriter := zapcore.AddSync(file)
+	consoleWriter := zapcore.AddSync(os.Stdout)
+	var writer zapcore.WriteSyncer
+	if production {
+		writer = fileWriter
+	} else {
+		writer = consoleWriter
+	}
+	core := zapcore.NewCore(
+		encoder,
+		writer,
+		zapLevel,
+	)
+
+	log := zap.New(
+		core,
+		zap.Fields(
+			zap.String("service", serviceName),
+		),
+		zap.AddCaller(),
+	)
 
 	sync := func() {
-		// Sync flushes any buffered log entries. Error is intentionally ignored
-		// because some environments (e.g. Docker stdout) don't support Sync.
 		_ = log.Sync()
+		_ = file.Close()
 	}
 
-	return log, sync
+	return log, sync, nil
 }
 
 func parseLevel(level string) zapcore.Level {
-	switch level {
+	switch strings.ToLower(level) {
 	case "debug":
 		return zapcore.DebugLevel
-	case "warn":
+
+	case "warn", "warning":
 		return zapcore.WarnLevel
+
 	case "error":
 		return zapcore.ErrorLevel
+
+	case "dpanic":
+		return zapcore.DPanicLevel
+
+	case "panic":
+		return zapcore.PanicLevel
+
+	case "fatal":
+		return zapcore.FatalLevel
+
 	default:
 		return zapcore.InfoLevel
 	}

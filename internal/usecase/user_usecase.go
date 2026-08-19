@@ -74,9 +74,10 @@ func (uc *userUsecase) CreateUser(ctx context.Context, input CreateUserInput) (*
 		return nil, fmt.Errorf("CreateUser: persist: %w", err)
 	}
 
-	uc.log.Info("CreateUser: success", zap.String("user_id", user.ID.String()))
+	uc.log.Info("CreateUser: success", zap.String("user_id", (user.UserID).String()))
 
 	resp := user.Sanitized()
+
 	return &resp, nil
 }
 

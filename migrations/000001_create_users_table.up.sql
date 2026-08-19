@@ -5,12 +5,16 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS users (
-    id          UUID            PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id          UUID            PRIMARY KEY,
     name        VARCHAR(100)    NOT NULL,
     email       VARCHAR(255)    NOT NULL,
     password    VARCHAR(255)    NOT NULL,
+    profile_pic TEXT,
+    is_email_verified BOOLEAN   NOT NULL DEFAULT FALSE,
+    is_active   BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-
+    updated_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    
     -- Enforce unique emails at the DB level as a safety net.
     CONSTRAINT users_email_unique UNIQUE (email)
 );

@@ -20,7 +20,7 @@ func TestNewUser_Valid(t *testing.T) {
 	if u.Password == "strongpass" {
 		t.Error("password must not be stored in plaintext")
 	}
-	if u.ID.String() == "" {
+	if (u.UserID).String() == "" {
 		t.Error("UUID must be assigned")
 	}
 }
@@ -69,7 +69,7 @@ func TestUser_Sanitized_OmitsPassword(t *testing.T) {
 	if resp.Email != "alice@example.com" {
 		t.Errorf("email: want alice@example.com, got %s", resp.Email)
 	}
-	if resp.ID.String() == "" {
+	if (resp.UserID).String() == "" {
 		t.Error("UUID must be present in sanitized response")
 	}
 }

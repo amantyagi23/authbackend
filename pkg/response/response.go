@@ -7,6 +7,7 @@ import "github.com/gofiber/fiber/v2"
 // Envelope is the standard API response shape.
 type Envelope struct {
 	Success bool        `json:"success"`
+	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   *APIError   `json:"error,omitempty"`
 	Meta    *Meta       `json:"meta,omitempty"`
@@ -24,20 +25,22 @@ type Meta struct {
 }
 
 // OK sends a 200 JSON response with data.
-func OK(c *fiber.Ctx, data interface{}) error {
+func OK(c *fiber.Ctx, message string, data interface{}) error {
 	return c.Status(fiber.StatusOK).JSON(Envelope{
 		Success: true,
+		Message: message,
 		Data:    data,
-		Meta:    &Meta{RequestID: c.Locals("requestid").(string)},
+		// Meta:    &Meta{RequestID: c.Locals("requestid").(string)},
 	})
 }
 
 // Created sends a 201 JSON response with data.
-func Created(c *fiber.Ctx, data interface{}) error {
+func Created(c *fiber.Ctx, message string, data interface{}) error {
 	return c.Status(fiber.StatusCreated).JSON(Envelope{
 		Success: true,
+		Message: message,
 		Data:    data,
-		Meta:    &Meta{RequestID: c.Locals("requestid").(string)},
+		// Meta:    &Meta{RequestID: c.Locals("requestid").(string)},
 	})
 }
 
@@ -70,5 +73,11 @@ func Conflict(c *fiber.Ctx, message string) error {
 	return c.Status(fiber.StatusConflict).JSON(Envelope{
 		Success: false,
 		Error:   &APIError{Code: "CONFLICT", Message: message},
+	})
+}
+func Unauthorized(c *fiber.Ctx, message string) error {
+	return c.Status(fiber.StatusUnauthorized).JSON(Envelope{
+		Success: false,
+		Error:   &APIError{Code: "UNAUTHORIZED", Message: message},
 	})
 }

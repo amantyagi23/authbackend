@@ -1,9 +1,3 @@
-// Package domain contains the User entity and its business rules.
-// This layer has ZERO external dependencies — no frameworks, no DB drivers.
-// Everything else depends on this layer; this layer depends on nothing.
-//
-// DDD principle: the domain is the source of truth for what a User IS
-// and what invariants must always hold.
 package domain
 
 import (
@@ -12,29 +6,92 @@ import (
 	"github.com/google/uuid"
 )
 
-// User is the core aggregate root of the user-service bounded context.
 type UserSession struct {
 	SessionID uuid.UUID
 	UserID    uuid.UUID
-	Token     string
+
+	// Store hashes rather than raw tokens in the database.
+	AccessToken  string
+	RefreshToken string
+
+	AccessTokenExpiredAt  time.Time
+	RefreshTokenExpiredAt time.Time
+
+	// Session lifecycle
+	IsRevoked bool
+	RevokedAt *time.Time
 	IsDeleted bool
-	ExpiredAt time.Time
+	DeletedAt *time.Time
+
+	// Security / client information
+	IPAddress string
+	UserAgent string
+
+	// Optional device information
+	DeviceID   *string
+	DeviceName *string
+	Platform   *string
+
+	// Session activity
+	LastUsedAt *time.Time
+
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-// NewUser is the factory function for creating a valid User.
-// It enforces all creation invariants (hashing the password, assigning an ID).
-func NewSession(userId, token string, expiredAt time.Time) (*UserSession, error) {
-	if token == "" {
+func NewSession(
+	userID uuid.UUID,
+	accessTokenHash string,
+	refreshTokenHash string,
+	accessTokenExpiredAt time.Time,
+	refreshTokenExpiredAt time.Time,
+	ipAddress string,
+	userAgent string,
+	deviceID string,
+	deviceName string,
+	platform string,
+) (*UserSession, error) {
+
+	if userID == uuid.Nil {
+		return nil, ErrUserNotFound
+	}
+
+	if accessTokenHash == "" {
 		return nil, ErrNoTokenFound
 	}
 
+	if refreshTokenHash == "" {
+		return nil, ErrNoTokenFound
+	}
+
+	now := time.Now().UTC()
+
 	return &UserSession{
 		SessionID: uuid.New(),
-		UserID:    uuid.New(),
-		Token:     token,
+		UserID:    userID,
+
+		AccessToken:  accessTokenHash,
+		RefreshToken: refreshTokenHash,
+
+		AccessTokenExpiredAt:  accessTokenExpiredAt,
+		RefreshTokenExpiredAt: refreshTokenExpiredAt,
+
+		IsRevoked: false,
+		RevokedAt: nil,
+
 		IsDeleted: false,
-		ExpiredAt: time.Now().UTC(),
-		CreatedAt: time.Now().UTC(),
+		DeletedAt: nil,
+
+		IPAddress: ipAddress,
+		UserAgent: userAgent,
+
+		DeviceID:   &deviceID,
+		DeviceName: &deviceName,
+		Platform:   &platform,
+
+		LastUsedAt: &now,
+
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil
 }

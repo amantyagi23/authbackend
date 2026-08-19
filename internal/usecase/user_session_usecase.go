@@ -12,9 +12,11 @@ import (
 )
 
 type CreateUserSession struct {
-	UserId    string
-	Token     string
-	ExpiredAt time.Time
+	UserId                uuid.UUID
+	AccessToken           string
+	RefreshToken          string
+	AccessTokenExpiredAt  time.Time
+	RefreshTokenExpiredAt time.Time
 }
 
 // UserUsecase is the application-layer contract.
@@ -39,10 +41,10 @@ func NewUserSessionUsecase(repo repository.UserSessionRepository, log *zap.Logge
 // CreateUser validates input, delegates entity creation to the domain,
 // checks for duplicates, and persists the new user.
 func (usuc *userSessionUsecase) CreateUserSession(ctx context.Context, input CreateUserSession) error {
-	usuc.log.Info("CreateUserSession: called", zap.String("UserId", input.UserId))
+	usuc.log.Info("CreateUserSession: called", zap.String("UserId", input.UserId.String()))
 
 	// 2. Delegate entity construsuction (including password hashing) to the domain.
-	userSession, err := domain.NewSession(input.UserId, input.Token, input.ExpiredAt)
+	userSession, err := domain.NewSession(input.UserId, input.AccessToken, input.RefreshToken, input.AccessTokenExpiredAt, input.RefreshTokenExpiredAt, "", "", "", "", "")
 	if err != nil {
 		return fmt.Errorf("CreateUserSession: domain: %w", err)
 	}

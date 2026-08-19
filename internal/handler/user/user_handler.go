@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/amantyagi23/authbackend/internal/domain"
+	"github.com/amantyagi23/authbackend/internal/middleware"
 	"github.com/amantyagi23/authbackend/internal/usecase"
 	"github.com/amantyagi23/authbackend/pkg/jwt"
 	"github.com/amantyagi23/authbackend/pkg/response"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +38,7 @@ func NewUserHandler(uc usecase.UserUsecase, usuc usecase.UserSessionUsecase, log
 func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	user := router.Group("/users")
 	user.Post("/", h.CreateUser)
-	user.Get("/getme", h.GetMe)
+	user.Get("/getme", middleware.EnsureAuthentication(h.log), h.GetMe)
 	user.Post("/login", h.Login)
 }
 
@@ -66,7 +68,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return response.BadRequest(c, "VALIDATION_ERROR", err.Error())
 	}
 
-	resp, err := h.uc.CreateUser(c.Context(), usecase.CreateUserInput{
+	_, err := h.uc.CreateUser(c.Context(), usecase.CreateUserInput{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
@@ -75,12 +77,18 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return h.mapError(c, err)
 	}
 
-	return response.Created(c, resp)
+	return response.Created(c, "User Created", nil)
 }
 
 func (h *UserHandler) GetMe(c *fiber.Ctx) error {
+	email := c.Params("id")
 
-	return response.OK(c, nil)
+	user, err := h.uc.GetUserByEmail(c.Context(), email)
+	if err != nil {
+		return h.mapError(c, err)
+	}
+
+	return response.OK(c, "", user)
 }
 
 func (h *UserHandler) Login(c *fiber.Ctx) error {
@@ -104,16 +112,19 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		return response.Conflict(c, "Invalid Email Or Password")
 	}
 
-	token, err := jwt.GenerateToken(user.ID.String())
+	accessToken, err := jwt.GenerateToken((user.UserID).String())
+	refreshToken := uuid.New().String()
 
 	if err != nil {
 		return h.mapError(c, err)
 	}
 
 	err = h.usuc.CreateUserSession(c.Context(), usecase.CreateUserSession{
-		UserId:    user.ID.String(),
-		Token:     token,
-		ExpiredAt: time.Now().Add(3600 * time.Second),
+		UserId:                user.UserID,
+		AccessToken:           accessToken,
+		RefreshToken:          refreshToken,
+		AccessTokenExpiredAt:  time.Now().Add(3600 * time.Second),
+		RefreshTokenExpiredAt: time.Now().Add(3600 * time.Second),
 	})
 
 	if err != nil {
@@ -122,14 +133,23 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "auth_token",
-		Value:    token,
+		Value:    accessToken,
 		HTTPOnly: true,
 		Secure:   false, // true in production (HTTPS)
 		SameSite: "Lax",
 		MaxAge:   3600, // 1 hour
 	})
 
-	return response.OK(c, user.Sanitized())
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		HTTPOnly: true,
+		Secure:   false, // true in production (HTTPS)
+		SameSite: "Lax",
+		MaxAge:   3600, // 1 hour
+	})
+
+	return response.OK(c, "Login Successfully", nil)
 
 }
 

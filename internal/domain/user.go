@@ -1,9 +1,3 @@
-// Package domain contains the User entity and its business rules.
-// This layer has ZERO external dependencies — no frameworks, no DB drivers.
-// Everything else depends on this layer; this layer depends on nothing.
-//
-// DDD principle: the domain is the source of truth for what a User IS
-// and what invariants must always hold.
 package domain
 
 import (
@@ -15,11 +9,15 @@ import (
 
 // User is the core aggregate root of the user-service bounded context.
 type User struct {
-	ID        uuid.UUID
-	Name      string
-	Email     string
-	Password  string // bcrypt hash — never the raw password
-	CreatedAt time.Time
+	UserID          uuid.UUID
+	Name            string
+	Email           string
+	Password        string // bcrypt hash — never the raw password
+	ProfilePic      *string
+	IsEmailVerified bool
+	IsActive        bool
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // NewUser is the factory function for creating a valid User.
@@ -41,11 +39,15 @@ func NewUser(name, email, rawPassword string) (*User, error) {
 	}
 
 	return &User{
-		ID:        uuid.New(),
-		Name:      name,
-		Email:     email,
-		Password:  string(hash),
-		CreatedAt: time.Now().UTC(),
+		UserID:          uuid.New(),
+		Name:            name,
+		Email:           email,
+		ProfilePic:      nil,
+		IsEmailVerified: false,
+		IsActive:        false,
+		Password:        string(hash),
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
 	}, nil
 }
 
@@ -58,19 +60,32 @@ func (u *User) VerifyPassword(rawPassword string) bool {
 // Sanitized returns a copy of the user without sensitive fields.
 // Use this whenever returning a User to the outside world.
 func (u *User) Sanitized() UserResponse {
+	var profilePic string
+	if u.ProfilePic != nil {
+		profilePic = *u.ProfilePic
+	}
+
 	return UserResponse{
-		ID:        u.ID,
-		Name:      u.Name,
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
+		UserID:          u.UserID,
+		Name:            u.Name,
+		Email:           u.Email,
+		ProfilePic:      profilePic,
+		IsEmailVerified: u.IsEmailVerified,
+		IsActive:        u.IsActive,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 }
 
 // UserResponse is the public-safe representation of a User.
 // The password hash is deliberately omitted.
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID          uuid.UUID `json:"user_id"`
+	Name            string    `json:"name"`
+	Email           string    `json:"email"`
+	ProfilePic      string
+	IsEmailVerified bool
+	IsActive        bool
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }

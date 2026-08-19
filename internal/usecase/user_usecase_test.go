@@ -30,7 +30,7 @@ func (r *fakeUserRepo) Create(_ context.Context, u *domain.User) error {
 			return domain.ErrEmailTaken
 		}
 	}
-	r.users[u.ID] = u
+	r.users[u.UserID] = u
 	return nil
 }
 
@@ -85,7 +85,7 @@ func TestCreateUser_Success(t *testing.T) {
 	if resp.Email != "alice@example.com" {
 		t.Errorf("expected email alice@example.com, got %s", resp.Email)
 	}
-	if resp.ID == uuid.Nil {
+	if resp.UserID == uuid.Nil {
 		t.Error("expected a non-nil UUID")
 	}
 }
@@ -120,12 +120,12 @@ func TestGetUser_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fetched, err := uc.GetUser(context.Background(), created.ID)
+	fetched, err := uc.GetUser(context.Background(), created.UserID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if fetched.ID != created.ID {
-		t.Errorf("ID mismatch: want %s got %s", created.ID, fetched.ID)
+	if fetched.UserID != created.UserID {
+		t.Errorf("UserID mismatch: want %s got %s", created.UserID, fetched.UserID)
 	}
 }
 
