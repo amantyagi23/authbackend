@@ -1,0 +1,152 @@
+# ================================
+# Go
+# ================================
+
+# Binaries
+/bin/
+/build/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Coverage
+coverage.out
+coverage.html
+*.coverprofile
+
+
+# ================================
+# Environment / Secrets
+# ================================
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+secrets/
+credentials/
+
+
+# ================================
+# IDE / Editors
+# ================================
+
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*~
+.project
+.classpath
+.settings/
+
+
+# ================================
+# OS
+# ================================
+
+.DS_Store
+Thumbs.db
+
+
+# ================================
+# Logs
+# ================================
+
+*.log
+logs/
+
+
+# ================================
+# Temporary files
+# ================================
+
+tmp/
+temp/
+.cache/
+
+
+# ================================
+# Docker
+# ================================
+
+docker-data/
+docker-volumes/
+
+
+# ================================
+# Terraform
+# ================================
+
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+
+# ================================
+# Test / Generated
+# ================================
+
+test-results/
+reports/
+coverage/
+
+
+# ================================
+# Database
+# ================================
+
+*.sqlite
+*.sqlite3
+*.db
+
+
+# ================================
+# Node (if frontend/admin is added)
+# ================================
+
+node_modules/
+.npm/
+.pnpm-store/
+.next/
+out/
+
+
+# ================================
+# Generated files
+# ================================
+
+generated/
+*.gen.go
+
+
+# ================================
+# Local development
+# ================================
+
+.local/
+.local-data/
