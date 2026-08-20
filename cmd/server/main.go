@@ -61,9 +61,11 @@ func main() {
 	defer psqlClient.Close()
 	userRepo := db.NewUserRepository(psqlClient, log)
 	userSessionRepo := db.NewUserSessionRepository(psqlClient, log)
+	emailVerificationRepo := db.NewEmailVerificationRepository(psqlClient, log)
 	uc := usecase.NewUserUsecase(userRepo, log)
 	usuc := usecase.NewUserSessionUsecase(userSessionRepo, log)
-	userHandler := user.NewUserHandler(uc, usuc, log)
+	usemuc := usecase.NewEmailVerificationUsecase(emailVerificationRepo, log)
+	userHandler := user.NewUserHandler(uc, usuc, usemuc, log)
 
 	app := fiber.New(fiber.Config{
 		AppName:               cfg.AppName,
@@ -100,10 +102,11 @@ func main() {
 	app.Use(fiberlogger.New(fiberlogger.Config{
 		Format: "[${time}] ${status} - ${method} ${path} | ${latency} | rid=${locals:requestid}\n",
 	}))
+
 	// Routes
 
 	api := app.Group(cfg.APIPrefix)
-
+	api.Static("/uploads", "uploads")
 	api.Get("/", func(c *fiber.Ctx) error {
 		return response.OK(c, "Welcome to Auth Apis", nil)
 	})

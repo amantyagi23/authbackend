@@ -1,6 +1,7 @@
-package domain
+package user
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +41,7 @@ type UserSession struct {
 }
 
 func NewSession(
+	SessionID uuid.UUID,
 	userID uuid.UUID,
 	accessTokenHash string,
 	refreshTokenHash string,
@@ -52,6 +54,9 @@ func NewSession(
 	platform string,
 ) (*UserSession, error) {
 
+	if SessionID == uuid.Nil {
+		return nil, errors.New("Session Id Not Found")
+	}
 	if userID == uuid.Nil {
 		return nil, ErrUserNotFound
 	}
@@ -67,7 +72,7 @@ func NewSession(
 	now := time.Now().UTC()
 
 	return &UserSession{
-		SessionID: uuid.New(),
+		SessionID: SessionID,
 		UserID:    userID,
 
 		AccessToken:  accessTokenHash,

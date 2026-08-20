@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/amantyagi23/authbackend/internal/domain"
+	domain "github.com/amantyagi23/authbackend/internal/domain/user"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -73,6 +73,70 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
+func (r *UserRepository) Update(
+	ctx context.Context,
+	user *domain.User,
+) error {
+	const query = `
+		UPDATE users
+		SET
+			name = $2,
+			email = $3,
+			password = $4,
+			profile_pic = $5,
+			is_email_verified = $6,
+			is_active = $7,
+			updated_at = NOW()
+		WHERE user_id = $1
+		RETURNING
+			user_id,
+			name,
+			email,
+			password,
+			profile_pic,
+			is_email_verified,
+			is_active,
+			created_at,
+			updated_at
+	`
+
+	err := r.db.QueryRow(
+		ctx,
+		query,
+		user.UserID,
+		user.Name,
+		user.Email,
+		user.Password,
+		user.ProfilePic,
+		user.IsEmailVerified,
+		user.IsActive,
+	).Scan(
+		&user.UserID,
+		&user.Name,
+		&user.Email,
+		&user.Password,
+		&user.ProfilePic,
+		&user.IsEmailVerified,
+		&user.IsActive,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrUserNotFound
+		}
+
+		if isPGXDuplicateKey(err) {
+			return domain.ErrEmailTaken
+		}
+
+		return fmt.Errorf("UserRepository.Update: %w", err)
+	}
+
+	return nil
+}
+
 // GetByID fetches user by UUID.
 func (repo *UserRepository) GetByID(ctx context.Context, userId uuid.UUID) (*domain.User, error) {
 
@@ -92,8 +156,8 @@ func (repo *UserRepository) GetByID(ctx context.Context, userId uuid.UUID) (*dom
 		&user.Email,
 		&user.Password,
 		&user.ProfilePic,
-		&user.IsActive,
 		&user.IsEmailVerified,
+		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -128,8 +192,8 @@ func (repo *UserRepository) GetByEmail(ctx context.Context, email string) (*doma
 		&user.Email,
 		&user.Password,
 		&user.ProfilePic,
-		&user.IsActive,
 		&user.IsEmailVerified,
+		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

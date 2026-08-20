@@ -1,20 +1,20 @@
 // Package usecase contains the application logic for the user-service.
 //
-// The usecase layer orchestrates domain objects and repository calls.
+// The usecase layer orchestrates user objects and repository calls.
 // It knows about business workflows but has zero HTTP/transport knowledge.
 //
 // Dependency flow:
 //
 //	delivery/http  →  usecase.UserUsecase (interface)
 //	                        ↓
-//	                  domain + repository.UserRepository
+//	                  user + repository.UserRepository
 package usecase
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/amantyagi23/authbackend/internal/domain"
+	"github.com/amantyagi23/authbackend/internal/domain/user"
 	"github.com/amantyagi23/authbackend/internal/repository"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -33,9 +33,10 @@ type CreateUserInput struct {
 //
 //go:generate mockery --name=UserUsecase --output=../../mocks --outpkg=mocks
 type UserUsecase interface {
-	CreateUser(ctx context.Context, input CreateUserInput) (*domain.UserResponse, error)
-	GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	CreateUser(ctx context.Context, input CreateUserInput) (*user.UserResponse, error)
+	GetUser(ctx context.Context, id uuid.UUID) (*user.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*user.User, error)
+	UpdateUser(ctx context.Context, user *user.User) error
 }
 
 // userUsecase is the concrete implementation of UserUsecase.
@@ -49,9 +50,9 @@ func NewUserUsecase(repo repository.UserRepository, log *zap.Logger) UserUsecase
 	return &userUsecase{repo: repo, log: log}
 }
 
-// CreateUser validates input, delegates entity creation to the domain,
+// CreateUser validates input, delegates entity creation to the user,
 // checks for duplicates, and persists the new user.
-func (uc *userUsecase) CreateUser(ctx context.Context, input CreateUserInput) (*domain.UserResponse, error) {
+func (uc *userUsecase) CreateUser(ctx context.Context, input CreateUserInput) (*user.UserResponse, error) {
 	uc.log.Info("CreateUser: called", zap.String("email", input.Email))
 
 	// 1. Check for duplicate email — a business rule, not a DB constraint concern.
@@ -60,13 +61,13 @@ func (uc *userUsecase) CreateUser(ctx context.Context, input CreateUserInput) (*
 		return nil, fmt.Errorf("CreateUser: check email: %w", err)
 	}
 	if exists {
-		return nil, domain.ErrEmailTaken
+		return nil, user.ErrEmailTaken
 	}
 
-	// 2. Delegate entity construction (including password hashing) to the domain.
-	user, err := domain.NewUser(input.Name, input.Email, input.Password)
+	// 2. Delegate entity construction (including password hashing) to the user.
+	user, err := user.NewUser(input.Name, input.Email, input.Password)
 	if err != nil {
-		return nil, fmt.Errorf("CreateUser: domain: %w", err)
+		return nil, fmt.Errorf("CreateUser: user: %w", err)
 	}
 
 	// 3. Persist via the repository interface.
@@ -82,7 +83,7 @@ func (uc *userUsecase) CreateUser(ctx context.Context, input CreateUserInput) (*
 }
 
 // GetUser fetches a single user by ID, returning a sanitized response.
-func (uc *userUsecase) GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (uc *userUsecase) GetUser(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	uc.log.Info("GetUser: called", zap.String("user_id", id.String()))
 
 	user, err := uc.repo.GetByID(ctx, id)
@@ -93,7 +94,7 @@ func (uc *userUsecase) GetUser(ctx context.Context, id uuid.UUID) (*domain.User,
 	return user, nil
 }
 
-func (uc *userUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (uc *userUsecase) GetUserByEmail(ctx context.Context, email string) (*user.User, error) {
 	uc.log.Info("GetUserByEmail: called", zap.String("email", email))
 
 	user, err := uc.repo.GetByEmail(ctx, email)
@@ -102,4 +103,14 @@ func (uc *userUsecase) GetUserByEmail(ctx context.Context, email string) (*domai
 	}
 
 	return user, nil
+}
+func (uc *userUsecase) UpdateUser(ctx context.Context, user *user.User) error {
+	uc.log.Info("UpdateUser: called", zap.String("email", user.Email))
+
+	err := uc.repo.Update(ctx, user)
+	if err != nil {
+		return fmt.Errorf("UpdateUser: %w", err)
+	}
+
+	return nil
 }

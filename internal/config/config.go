@@ -20,6 +20,7 @@ type Config struct {
 	PSQLDatabase string
 	PSQLHost     string
 	PSQLPort     string
+	BackendUrl   string
 }
 
 func Load() *Config {
@@ -39,5 +40,6 @@ func Load() *Config {
 		PSQLDatabase: "",
 		PSQLHost:     "",
 		PSQLPort:     "",
+		BackendUrl:   "http://localhost:4500/api/v1/",
 	}
 }

@@ -14,7 +14,7 @@ package repository
 import (
 	"context"
 
-	"github.com/amantyagi23/authbackend/internal/domain"
+	"github.com/amantyagi23/authbackend/internal/domain/user"
 	"github.com/google/uuid"
 )
 
@@ -24,13 +24,15 @@ import (
 // Any storage backend (Postgres, Redis, in-memory) must satisfy this interface.
 type UserRepository interface {
 	// Create persists a new user. Returns ErrEmailTaken if the email is duplicate.
-	Create(ctx context.Context, user *domain.User) error
+	Create(ctx context.Context, user *user.User) error
+
+	Update(ctx context.Context, user *user.User) error
 
 	// GetByID fetches a user by its UUID. Returns ErrUserNotFound if absent.
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*user.User, error)
 
 	// GetByEmail fetches a user by email. Returns ErrUserNotFound if absent.
-	GetByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetByEmail(ctx context.Context, email string) (*user.User, error)
 
 	// ExistsByEmail returns true if the email is already registered.
 	ExistsByEmail(ctx context.Context, email string) (bool, error)

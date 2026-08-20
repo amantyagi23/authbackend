@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/amantyagi23/authbackend/internal/domain"
+	"github.com/amantyagi23/authbackend/internal/domain/user"
 	"github.com/amantyagi23/authbackend/internal/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -29,7 +29,7 @@ func NewUserSessionRepository(db *pgxpool.Pool, log *zap.Logger) repository.User
 }
 
 // Create inserts a new user session.
-func (r *UserSessionRepository) Create(ctx context.Context, userSession *domain.UserSession) error {
+func (r *UserSessionRepository) Create(ctx context.Context, userSession *user.UserSession) error {
 	if userSession.SessionID == uuid.Nil {
 		userSession.SessionID = uuid.New()
 	}
@@ -85,13 +85,13 @@ func (r *UserSessionRepository) Create(ctx context.Context, userSession *domain.
 }
 
 // GetByID fetches a session by its session ID.
-func (r *UserSessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.UserSession, error) {
+func (r *UserSessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.UserSession, error) {
 	row := r.db.QueryRow(ctx, selectSessionColumns+` WHERE id = $1 AND is_deleted = FALSE`, id)
 
 	session, err := scanUserSession(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("UserSessionRepository.GetByID: %w", err)
 	}
@@ -100,7 +100,7 @@ func (r *UserSessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 }
 
 // GetByUserID fetches the most recent active session for a user.
-func (r *UserSessionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.UserSession, error) {
+func (r *UserSessionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*user.UserSession, error) {
 	row := r.db.QueryRow(
 		ctx,
 		selectSessionColumns+`
@@ -113,7 +113,7 @@ func (r *UserSessionRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 	session, err := scanUserSession(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("UserSessionRepository.GetByUserID: %w", err)
 	}
@@ -122,7 +122,7 @@ func (r *UserSessionRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 }
 
 // GetByRefreshToken fetches a session by its (hashed) refresh token — useful for refresh-token rotation.
-func (r *UserSessionRepository) GetByRefreshToken(ctx context.Context, refreshTokenHash string) (*domain.UserSession, error) {
+func (r *UserSessionRepository) GetByRefreshToken(ctx context.Context, refreshTokenHash string) (*user.UserSession, error) {
 	row := r.db.QueryRow(
 		ctx,
 		selectSessionColumns+`
@@ -133,7 +133,7 @@ func (r *UserSessionRepository) GetByRefreshToken(ctx context.Context, refreshTo
 	session, err := scanUserSession(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("UserSessionRepository.GetByRefreshToken: %w", err)
 	}
@@ -160,7 +160,30 @@ func (r *UserSessionRepository) Revoke(ctx context.Context, id uuid.UUID) error 
 		return fmt.Errorf("UserSessionRepository.Revoke: %w", err)
 	}
 	if cmd.RowsAffected() == 0 {
-		return domain.ErrUserNotFound
+		return user.ErrUserNotFound
+	}
+
+	return nil
+}
+func (r *UserSessionRepository) UpdateAccessToken(ctx context.Context, sessionId uuid.UUID, accessToken string) error {
+	now := time.Now().UTC()
+
+	cmd, err := r.db.Exec(
+		ctx,
+		`
+		UPDATE user_sessions
+		SET access_token = $2,
+		    updated_at = $3
+		WHERE id = $1 AND is_deleted = FALSE`,
+		sessionId,
+		accessToken,
+		now,
+	)
+	if err != nil {
+		return fmt.Errorf("UserSessionRepository.updateAccessToken: %w", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return user.ErrUserNotFound
 	}
 
 	return nil
@@ -177,7 +200,7 @@ func (r *UserSessionRepository) Delete(ctx context.Context, id uuid.UUID) error 
 		SET is_deleted = TRUE,
 		    deleted_at = $2,
 		    updated_at = $2
-		WHERE id = $1 AND is_deleted = FALSE`,
+		WHERE user_id = $1 AND is_deleted = FALSE`,
 		id,
 		now,
 	)
@@ -185,7 +208,7 @@ func (r *UserSessionRepository) Delete(ctx context.Context, id uuid.UUID) error 
 		return fmt.Errorf("UserSessionRepository.Delete: %w", err)
 	}
 	if cmd.RowsAffected() == 0 {
-		return domain.ErrUserNotFound
+		return user.ErrUserNotFound
 	}
 
 	return nil
@@ -231,9 +254,9 @@ SELECT
 FROM user_sessions
 `
 
-// scanUserSession scans a single row into a domain.UserSession.
-func scanUserSession(row pgx.Row) (*domain.UserSession, error) {
-	var s domain.UserSession
+// scanUserSession scans a single row into a user.UserSession.
+func scanUserSession(row pgx.Row) (*user.UserSession, error) {
+	var s user.UserSession
 	var ip *string
 
 	err := row.Scan(

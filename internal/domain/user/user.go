@@ -1,8 +1,9 @@
-package domain
+package user
 
 import (
 	"time"
 
+	"github.com/amantyagi23/authbackend/internal/config"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -57,12 +58,29 @@ func (u *User) VerifyPassword(rawPassword string) bool {
 	return err == nil
 }
 
+func (u *User) SetPassword(rawPassword string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(rawPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.Password = string(hash)
+	return nil
+}
+func (u *User) SetProfilePic(image string) error {
+	u.ProfilePic = &image
+	return nil
+}
+func (u *User) SetEmailVerification(value bool) error {
+	u.IsEmailVerified = value
+	return nil
+}
+
 // Sanitized returns a copy of the user without sensitive fields.
 // Use this whenever returning a User to the outside world.
 func (u *User) Sanitized() UserResponse {
 	var profilePic string
 	if u.ProfilePic != nil {
-		profilePic = *u.ProfilePic
+		profilePic = config.Load().BackendUrl + *u.ProfilePic
 	}
 
 	return UserResponse{

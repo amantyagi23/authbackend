@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/amantyagi23/authbackend/internal/domain"
+	"github.com/amantyagi23/authbackend/internal/domain/user"
 	"github.com/amantyagi23/authbackend/internal/usecase"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -17,38 +17,38 @@ import (
 // ── In-memory fake repository ─────────────────────────────────────────────────
 
 type fakeUserRepo struct {
-	users map[uuid.UUID]*domain.User
+	users map[uuid.UUID]*user.User
 }
 
 func newFakeRepo() *fakeUserRepo {
-	return &fakeUserRepo{users: make(map[uuid.UUID]*domain.User)}
+	return &fakeUserRepo{users: make(map[uuid.UUID]*user.User)}
 }
 
-func (r *fakeUserRepo) Create(_ context.Context, u *domain.User) error {
+func (r *fakeUserRepo) Create(_ context.Context, u *user.User) error {
 	for _, existing := range r.users {
 		if existing.Email == u.Email {
-			return domain.ErrEmailTaken
+			return user.ErrEmailTaken
 		}
 	}
 	r.users[u.UserID] = u
 	return nil
 }
 
-func (r *fakeUserRepo) GetByID(_ context.Context, id uuid.UUID) (*domain.User, error) {
+func (r *fakeUserRepo) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) {
 	u, ok := r.users[id]
 	if !ok {
-		return nil, domain.ErrUserNotFound
+		return nil, user.ErrUserNotFound
 	}
 	return u, nil
 }
 
-func (r *fakeUserRepo) GetByEmail(_ context.Context, email string) (*domain.User, error) {
+func (r *fakeUserRepo) GetByEmail(_ context.Context, email string) (*user.User, error) {
 	for _, u := range r.users {
 		if u.Email == email {
 			return u, nil
 		}
 	}
-	return nil, domain.ErrUserNotFound
+	return nil, user.ErrUserNotFound
 }
 
 func (r *fakeUserRepo) ExistsByEmail(_ context.Context, email string) (bool, error) {
@@ -103,7 +103,7 @@ func TestCreateUser_DuplicateEmail(t *testing.T) {
 	}
 
 	_, err := uc.CreateUser(context.Background(), input)
-	if !errors.Is(err, domain.ErrEmailTaken) {
+	if !errors.Is(err, user.ErrEmailTaken) {
 		t.Errorf("expected ErrEmailTaken, got %v", err)
 	}
 }
@@ -133,7 +133,7 @@ func TestGetUser_NotFound(t *testing.T) {
 	uc, _ := newUC()
 
 	_, err := uc.GetUser(context.Background(), uuid.New())
-	if !errors.Is(err, domain.ErrUserNotFound) {
+	if !errors.Is(err, user.ErrUserNotFound) {
 		t.Errorf("expected ErrUserNotFound, got %v", err)
 	}
 }
@@ -147,7 +147,7 @@ func TestCreateUser_PasswordTooShort(t *testing.T) {
 		Password: "short",
 	})
 
-	if !errors.Is(err, domain.ErrPasswordTooShort) {
+	if !errors.Is(err, user.ErrPasswordTooShort) {
 		t.Errorf("expected ErrPasswordTooShort, got %v", err)
 	}
 }

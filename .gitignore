@@ -41,6 +41,7 @@ coverage.html
 secrets/
 credentials/
 
+uploads/
 
 # ================================
 # IDE / Editors

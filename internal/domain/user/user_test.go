@@ -1,11 +1,11 @@
-// Package domain_test tests the User entity's invariants.
+// package user_test tests the User entity's invariants.
 // No external dependencies — pure Go, instant execution.
-package domain_test
+package user_test
 
 import (
 	"testing"
 
-	"github.com/amantyagi23/authbackend/internal/domain"
+	domain "github.com/amantyagi23/authbackend/internal/domain/user"
 )
 
 func TestNewUser_Valid(t *testing.T) {
